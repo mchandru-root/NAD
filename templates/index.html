@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Network Anomaly Detector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="scanline"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">◈</span>
+    <span class="brand-name">NAD</span>
+    <span class="brand-sub">network anomaly detector</span>
+  </div>
+  <div class="mode-pill" id="mode-pill">MODE: {{ mode|upper }}</div>
+</header>
+
+<main class="grid">
+
+  <section class="panel panel-gauge">
+    <h2 class="panel-title">Threat Level</h2>
+    <div class="gauge-wrap">
+      <svg viewBox="0 0 200 120" class="gauge">
+        <path d="M 20 100 A 80 80 0 0 1 180 100" class="gauge-track"/>
+        <path d="M 20 100 A 80 80 0 0 1 180 100" class="gauge-fill" id="gauge-fill"/>
+      </svg>
+      <div class="gauge-readout" id="gauge-readout">NOMINAL</div>
+    </div>
+    <dl class="stat-list">
+      <div><dt>Tracked hosts</dt><dd id="stat-hosts">—</dd></div>
+      <div><dt>Alerts (session)</dt><dd id="stat-alerts">—</dd></div>
+      <div><dt>ML model</dt><dd id="stat-model">warming up</dd></div>
+      <div><dt>Uptime</dt><dd id="stat-uptime">—</dd></div>
+    </dl>
+  </section>
+
+  <section class="panel panel-flows">
+    <h2 class="panel-title">Active Flows <span class="hint">last 10s window</span></h2>
+    <div class="table-wrap">
+      <table id="flows-table">
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th>Pkt/s</th>
+            <th>Bytes/s</th>
+            <th>Dst IPs</th>
+            <th>Dst ports</th>
+            <th>SYN ratio</th>
+          </tr>
+        </thead>
+        <tbody id="flows-body">
+          <tr><td colspan="6" class="empty">Waiting for traffic…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel panel-alerts">
+    <h2 class="panel-title">Alert Feed</h2>
+    <div class="alert-feed" id="alert-feed">
+      <div class="empty">No anomalies detected yet.</div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span>Rule engine + Isolation Forest scoring, refreshed every 2s</span>
+  <span id="clock"></span>
+</footer>
+
+<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Network Anomaly Detector — SOC Traffic Console</title>
+<meta name="description" content="Client-side network traffic anomaly detector. Upload flow logs or load sample data to see port-scan, beaconing, exfiltration, and sensitive-port detections in a live SIEM-style console." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="scanlines" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-dot" id="statusDot"></span>
+    <span class="brand-name">NAD</span>
+    <span class="brand-sub">/ network anomaly console</span>
+  </div>
+  <a class="gh-link" href="https://github.com/mchandru-root/ex" target="_blank" rel="noopener" id="githubLink">
+    View on GitHub →
+  </a>
+</header>
+
+<main>
+  <section class="hero">
+    <p class="eyebrow">Client-side detection · no backend · runs entirely in your browser</p>
+    <h1>Network traffic doesn't lie.<br>Most of it is just noise.</h1>
+    <p class="hero-copy">
+      NAD ingests raw flow logs — the same shape of data a SOC analyst
+      pulls from NetFlow, Zeek, or a SIEM export — and scores every source
+      host for port-scanning, beaconing, sensitive-port access, and volume
+      anomalies. Load the sample capture below or drop in your own CSV.
+    </p>
+    <div class="hero-actions">
+      <label class="btn btn-primary" for="fileInput">
+        Upload flow CSV
+        <input type="file" id="fileInput" accept=".csv" hidden />
+      </label>
+      <button class="btn btn-ghost" id="loadSampleBtn">Load sample capture</button>
+    </div>
+    <p class="hero-hint" id="fileHint">No file loaded yet — try the sample capture to see it in action.</p>
+  </section>
+
+  <section class="stat-strip" id="statStrip" aria-live="polite">
+    <div class="stat">
+      <span class="stat-value" id="statFlows">—</span>
+      <span class="stat-label">flows analyzed</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value" id="statHosts">—</span>
+      <span class="stat-label">source hosts</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value stat-alert" id="statAnomalies">—</span>
+      <span class="stat-label">anomalies flagged</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value" id="statCritical">—</span>
+      <span class="stat-label">critical severity</span>
+    </div>
+    <div class="stat">
+      <span class="stat-value" id="statWindow">—</span>
+      <span class="stat-label">capture window</span>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="panel panel-wide">
+      <div class="panel-head">
+        <h2>Traffic volume over time</h2>
+        <span class="panel-note">bytes / minute, per source · flagged spikes marked</span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="volumeChart" height="220"></canvas>
+      </div>
+    </div>
+
+    <div class="panel panel-console">
+      <div class="panel-head">
+        <h2>Live event stream</h2>
+        <span class="panel-note" id="consoleNote">awaiting data</span>
+      </div>
+      <div class="console" id="eventConsole">
+        <div class="console-empty">Console idle. Load a capture to begin streaming detections.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel panel-table-wrap">
+    <div class="panel-head">
+      <h2>Flagged hosts</h2>
+      <span class="panel-note">ranked by anomaly score · click a row for detail</span>
+    </div>
+    <div class="table-scroll">
+      <table id="anomalyTable">
+        <thead>
+          <tr>
+            <th>Severity</th>
+            <th>Source IP</th>
+            <th>Detection</th>
+            <th>Flows</th>
+            <th>Distinct ports</th>
+            <th>Total bytes</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody id="anomalyTableBody">
+          <tr><td colspan="7" class="table-empty">No data loaded.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="detailPanel" hidden>
+    <div class="panel-head">
+      <h2 id="detailTitle">Host detail</h2>
+      <button class="btn btn-ghost btn-sm" id="closeDetail">Close</button>
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+  </section>
+
+  <section class="method">
+    <h2>How detection works</h2>
+    <div class="method-grid">
+      <div class="method-card">
+        <span class="method-tag tag-critical">Port scan</span>
+        <p>Flags a source host that touches an unusual number of distinct
+        destination ports in a short window — the classic signature of
+        reconnaissance / <code>nmap</code>-style scanning.</p>
+      </div>
+      <div class="method-card">
+        <span class="method-tag tag-high">Sensitive port access</span>
+        <p>Flags connections to high-risk services (RDP 3389, SMB 445,
+        Telnet 23, FTP 21, MySQL 3306) — ports that are rarely meant to be
+        internet-facing.</p>
+      </div>
+      <div class="method-card">
+        <span class="method-tag tag-medium">Volume anomaly</span>
+        <p>Computes a z-score on bytes-transferred per host against the
+        capture's baseline. Large deviations can indicate data
+        exfiltration or a misbehaving service.</p>
+      </div>
+      <div class="method-card">
+        <span class="method-tag tag-medium">Beaconing</span>
+        <p>Looks for a host calling out to the same destination at
+        suspiciously regular intervals — a common command-and-control
+        (C2) callback pattern.</p>
+      </div>
+      <div class="method-card">
+        <span class="method-tag tag-high">Failed-connection ratio</span>
+        <p>Tracks the proportion of RST/incomplete handshakes from a
+        source — elevated ratios suggest brute-forcing or scanning rather
+        than normal traffic.</p>
+      </div>
+      <div class="method-card">
+        <span class="method-tag tag-note">+ ML module</span>
+        <p>The companion Python script (<code>/python</code>) runs the
+        same feature set through scikit-learn's IsolationForest for a
+        second, unsupervised opinion — see the repo for the offline
+        version.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="about">
+    <h2>About this project</h2>
+    <p>
+      NAD was built as a hands-on demonstration of SOC-style network
+      anomaly detection: turning raw flow records into triaged,
+      severity-ranked findings the way an analyst would in Wazuh, Splunk,
+      or the Elastic stack. Everything on this page runs client-side in
+      JavaScript — no server, no data leaves your browser — with a parallel
+      Python/scikit-learn module in the repository for offline,
+      ML-based analysis of the same data.
+    </p>
+    <p class="stack-line">
+      <strong>Stack:</strong> vanilla JS, HTML5 Canvas, CSV parsing —
+      Python 3, pandas, scikit-learn (IsolationForest), matplotlib for the
+      offline module.
+    </p>
+  </section>
+</main>
+
+<footer>
+  <p>Built by Chandru M · Network Anomaly Detector · <a href="https://github.com/mchandru-root/ex/blob/main/README.md">read the docs</a></p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
